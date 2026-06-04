@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CM Partner</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f6fa;color:#1a1a2e;font-size:14px}
+.app{min-height:100vh;display:flex;flex-direction:column}
+header{background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+.header-title{display:flex;align-items:center;gap:10px}
+.header-title h1{font-size:20px;font-weight:700}
+.badge{background:#eef2ff;color:#4f46e5;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.header-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;color:#94a3b8}
+.search-box input{border:none;background:transparent;outline:none;font-size:14px;color:#1a1a2e;width:220px}
+.btn,.btn-icon{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:background .15s;white-space:nowrap}
+.btn-primary{background:#4f46e5;color:#fff}.btn-primary:hover{background:#4338ca}
+.btn-secondary{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}.btn-secondary:hover{background:#e2e8f0}
+.btn-danger{background:#ef4444;color:#fff}.btn-danger:hover{background:#dc2626}
+.btn-icon{background:none;border:none;padding:5px;border-radius:6px;color:#64748b}
+.btn-icon:hover{background:#f1f5f9;color:#1a1a2e}
+.btn-icon.del:hover{background:#fee2e2;color:#ef4444}
+main{flex:1;overflow-x:auto;padding:20px 24px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+th{background:#f8fafc;padding:11px 16px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0}
+td{padding:12px 16px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#fafbff}
+.tag{display:inline-block;margin-left:8px;background:#e0e7ff;color:#4338ca;font-size:11px;padding:1px 7px;border-radius:999px;font-weight:500;vertical-align:middle}
+.addr{color:#64748b;line-height:1.6}
+.contact{display:flex;flex-direction:column;gap:3px}
+.contact-name{font-weight:500}
+.contact-fn{color:#94a3b8;font-size:12px}
+.contact a{display:flex;align-items:center;gap:5px;color:#4f46e5;text-decoration:none;font-size:13px}
+.contact a:hover{text-decoration:underline}
+.actions{white-space:nowrap;text-align:right;width:70px}
+.empty{text-align:center;padding:40px!important;color:#94a3b8}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.overlay.hidden{display:none}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #e2e8f0}
+.modal-header h2{font-size:18px;font-weight:600}
+.modal-body{overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:20px}
+.modal-body section h3{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #f1f5f9}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg.full{grid-column:1/-1}
+.fg label{font-size:12px;font-weight:500;color:#475569}
+.fg input{border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:14px;outline:none;color:#1a1a2e;background:#fff}
+.fg input:focus{border-color:#4f46e5}
+.modal-footer{padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px}
+.confirm{max-width:400px;padding:24px;gap:12px;display:flex;flex-direction:column}
+.confirm h2{font-size:18px}
+.confirm p{color:#475569}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="header-title">
+      <h1>CM Partner</h1>
+      <span class="badge" id="count">0 Partner</span>
+    </div>
+    <div class="header-actions">
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="search" placeholder="Suche nach Name, Ort, Kontakt…" oninput="render()">
+      </div>
+      <label class="btn btn-secondary" title="CSV importieren">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importieren (CSV)
+        <input type="file" accept=".csv" onchange="importCSV(event)" style="display:none">
+      </label>
+      <button class="btn btn-secondary" onclick="exportCSV()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportieren (CSV)
+      </button>
+      <button class="btn btn-primary" onclick="openModal(null)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Neuer Partner
+      </button>
+    </div>
+  </header>
+  <main>
+    <table>
+      <thead>
+        <tr>
+          <th>Firma</th>
+          <th>Adresse</th>
+          <th>Ansprechpartner 1</th>
+          <th>Ansprechpartner 2</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </main>
+</div>
+
+<!-- Edit Modal -->
+<div class="overlay hidden" id="editOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Partner bearbeiten</h2>
+      <button class="btn-icon" onclick="closeModal()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form onsubmit="savePartner(event)">
+      <div class="modal-body">
+        <section>
+          <h3>Firma</h3>
+          <div class="form-grid">
+            <div class="fg full"><label>Name *</label><input id="f-name" required></div>
+            <div class="fg full"><label>Strasse</label><input id="f-strasse"></div>
+            <div class="fg"><label>PLZ</label><input id="f-plz"></div>
+            <div class="fg"><label>Ort</label><input id="f-ort"></div>
+            <div class="fg"><label>Land</label><input id="f-land"></div>
+          </div>
+        </section>
+        <section>
+          <h3>Ansprechpartner 1</h3>
+          <div class="form-grid">
+            <div class="fg"><label>Name</label><input id="f-ap1"></div>
+            <div class="fg"><label>Funktion</label><input id="f-fn1"></div>
+            <div class="fg"><label>E-Mail</label><input type="email" id="f-em1"></div>
+            <div class="fg"><label>Telefon</label><input id="f-tel1"></div>
+          </div>
+        </section>
+        <section>
+          <h3>Ansprechpartner 2</h3>
+          <div class="form-grid">
+            <div class="fg"><label>Name</label><input id="f-ap2"></div>
+            <div class="fg"><label>Funktion</label><input id="f-fn2"></div>
+            <div class="fg"><label>E-Mail</label><input type="email" id="f-em2"></div>
+            <div class="fg"><label>Telefon</label><input id="f-tel2"></div>
+          </div>
+        </section>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Confirm -->
+<div class="overlay hidden" id="delOverlay" onclick="if(event.target===this)closeDelete()">
+  <div class="modal confirm">
+    <h2>Partner löschen?</h2>
+    <p id="delText"></p>
+    <div class="modal-footer" style="border:none;padding:0">
+      <button class="btn btn-secondary" onclick="closeDelete()">Abbrechen</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const INITIAL = [
+  {id:1,name:'Accenture',strasse:'',plz:'',ort:'',land:'CH',ap1:'Ana Campos',fn1:'',em1:'ana.campos@accenture.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:2,name:'adesso Schweiz AG',strasse:'Vulkanstrasse 106',plz:'8048',ort:'Zürich',land:'CH',ap1:'Michaela Gasser',fn1:'CEO',em1:'Michaela.Gasser@adesso.ch',tel1:'41795379170',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:3,name:'Adnovum AG',strasse:'Badenerstrasse 170',plz:'8004',ort:'Zürich',land:'CH',ap1:'Thomas Buehlmann',fn1:'',em1:'thomas.buehlmann@adnovum.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:4,name:'Alpha People',strasse:'',plz:'',ort:'',land:'CH',ap1:'',fn1:'',em1:'info.ch@alfapeople.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:5,name:'Ambit',strasse:'',plz:'',ort:'',land:'CH',ap1:'Christian Schipp',fn1:'CEO',em1:'christian.schipp@ambit-group.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:6,name:'Aproda',strasse:'',plz:'',ort:'',land:'CH',ap1:'',fn1:'',em1:'verkauf@aproda.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:7,name:'Avega',strasse:'Parkterrasse 14',plz:'3012',ort:'Bern',land:'CH',ap1:'Paul Neuhaus',fn1:'Partner',em1:'paul.neuhaus@avega.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:8,name:'BBT',strasse:'',plz:'',ort:'',land:'CH',ap1:'Walter Capozzolo',fn1:'',em1:'walter.capozzolo@bbtsoftware.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:9,name:'BBV',strasse:'',plz:'',ort:'',land:'CH',ap1:'Philipp Kronenberg',fn1:'CEO',em1:'philipp.kronenberg@bbv.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:10,name:'Boxtop',strasse:'',plz:'',ort:'',land:'CH',ap1:'Andreas Aschwanden',fn1:'',em1:'andreas.aschwanden@boxtop.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:11,name:'Comitas AG',strasse:'Wiesenstrasse 10a',plz:'8952',ort:'Schlieren',land:'CH',ap1:'Jürgen Astl',fn1:'',em1:'juergen.astl@comitas.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:12,name:'Consultics AG',strasse:'Elggerstrassse 4',plz:'8356',ort:'Ettenhausen',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:13,name:'crossmind inc.',strasse:'Waldeggstrasse 37',plz:'3097',ort:'Bern',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:14,name:'Curion Informatik AG',strasse:'Bahnhofstrasse 3',plz:'7000',ort:'Chur',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:15,name:'Cybersystems',strasse:'',plz:'',ort:'',land:'CH',ap1:'Urs Graf',fn1:'CEO',em1:'ugraf@cybersystems.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:16,name:'dot consulting AG',strasse:'',plz:'',ort:'',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:17,name:'Edorex Informatik AG',strasse:'Unterdorfstrasse 5',plz:'3072',ort:'Ostermundigen',land:'CH',ap1:'Christian Dassen',fn1:'GL',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:18,name:'Elca',strasse:'',plz:'',ort:'',land:'CH',ap1:'Markus Gähwiler',fn1:'',em1:'markus.gaehwiler@elca.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:19,name:'Emineo',strasse:'',plz:'',ort:'',land:'CH',ap1:'Marc-Antoine Siegler',fn1:'',em1:'marc-antoine.siegler@emineo.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:20,name:'Eraneos',strasse:'',plz:'',ort:'',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:21,name:'Ergon Informatik AG',strasse:'Merkurstrasse 43',plz:'8032',ort:'Zürich',land:'CH',ap1:'Heiko Faller',fn1:'GL',em1:'heiko.faller@ergon.ch',tel1:'41792065442',ap2:'Jean Claude Schwarzen',fn2:'BD',em2:'jean-claude.schwarzen@ergon.ch',tel2:''},
+  {id:22,name:'ERNI Management Services AG',strasse:'',plz:'',ort:'',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:23,name:'Glaux Group AG',strasse:'Steigerhubelstrasse 3',plz:'3008',ort:'Bern',land:'CH',ap1:'Andreas Gertsch',fn1:'',em1:'andreas.gertsch@glauxgroup.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:24,name:'GoBeyond Consulting AG',strasse:'',plz:'',ort:'',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:25,name:'Innorox',strasse:'',plz:'',ort:'',land:'CH',ap1:'Bojan Jancar',fn1:'',em1:'bojan.jancar@innorox.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:26,name:'IOZ',strasse:'',plz:'',ort:'',land:'CH',ap1:'Samuel Alessandri',fn1:'',em1:'samuel.alessandri@ioz.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:27,name:'IPT',strasse:'',plz:'',ort:'',land:'CH',ap1:'Reto Kohlas',fn1:'',em1:'reto.kohlas@ipt.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:28,name:'isolutions AG',strasse:'The Circle 38',plz:'8058',ort:'Zürich Flughafen',land:'CH',ap1:'',fn1:'',em1:'josua.regez@isolutions.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:29,name:'itnetX AG',strasse:'Kirchstrasse 22',plz:'3097',ort:'Liebefeld',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:30,name:'IWF AG',strasse:'Altmarktstrasse 96',plz:'4410',ort:'Liestal',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:31,name:'kiwi Consultants AG',strasse:'',plz:'',ort:'',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:32,name:'Löwenfels Partner AG',strasse:'Maihofstrasse 1',plz:'6004',ort:'Luzern',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:33,name:'Lufthansa Industry Solutions BS GmbH',strasse:'Marktgasse 22',plz:'3011',ort:'Bern',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:34,name:'Mimacom',strasse:'Weltpoststrasse 5',plz:'3015',ort:'Bern',land:'CH',ap1:'Joscha Jenni',fn1:'',em1:'joscha.jenni@mimacom.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:35,name:'Netcetera',strasse:'',plz:'',ort:'',land:'CH',ap1:'Carsten Wengel',fn1:'',em1:'carsten.wengel@netcetera.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:36,name:'Nexplore AG',strasse:'C.F.L Lohnerstrasse 24',plz:'3645',ort:'Gwatt',land:'CH',ap1:'Urs Wymann',fn1:'',em1:'urs.wymann@nexplore.ch',tel1:'',ap2:'Daniel Aebersold',fn2:'VR',em2:'aebersold@nexplore.ch',tel2:''},
+  {id:37,name:'Noser Engineering AG',strasse:'Rudolf-Diesel-Strasse 3',plz:'8404',ort:'Winterthur',land:'CH',ap1:'Remo Noser',fn1:'CEO',em1:'remo.noser@noser.com',tel1:'41795817351',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:38,name:'Nova Capta',strasse:'',plz:'',ort:'',land:'CH',ap1:'Heinz Süess',fn1:'',em1:'heinz.suess@novacapta.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:39,name:'Novo Business Consultants AG',strasse:'Hofwiesenstrassse 349',plz:'8050',ort:'Zürich',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:40,name:'NXT Engineering GmbH',strasse:'Leutschenbachstrasse 45',plz:'8050',ort:'Zürich',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:41,name:'Openconcept AG',strasse:'Busswilstrasse 2',plz:'3250',ort:'Lyss',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:42,name:'Orbis Schweiz AG',strasse:'Jöchlerweg 4',plz:'6340',ort:'Baar',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:43,name:'Pohn IT',strasse:'',plz:'',ort:'',land:'CH',ap1:'Christian Pohn',fn1:'',em1:'christian.pohn@pohn.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:44,name:'Rexult AG',strasse:'Optingenstrasse 56',plz:'3013',ort:'Bern',land:'CH',ap1:'Manuel Novo',fn1:'',em1:'Manuel.Novo@rexult.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:45,name:'Senergy Services AG',strasse:'Täfernstrasse 2a',plz:'5405',ort:'Baden-Dättwil',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:46,name:'Sourcing Partner AG',strasse:'',plz:'',ort:'',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:47,name:'Theia Solutions GmbH',strasse:'Wasserwerkstrasse 2',plz:'8006',ort:'Zürich',land:'CH',ap1:'',fn1:'',em1:'',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:48,name:'TI&M',strasse:'',plz:'',ort:'',land:'CH',ap1:'Arno Meister',fn1:'BD',em1:'Arno.Meister@ti8m.ch',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+  {id:49,name:'Zühlke',strasse:'',plz:'',ort:'',land:'CH',ap1:'Juerg Schaufelberger',fn1:'',em1:'juerg.schaufelberger@zuehlke.com',tel1:'',ap2:'',fn2:'',em2:'',tel2:''},
+];
+
+const KEY = 'cmpartner';
+let partners = JSON.parse(localStorage.getItem(KEY) || 'null') || INITIAL;
+let editId = null;
+let deleteId = null;
+
+function save() { localStorage.setItem(KEY, JSON.stringify(partners)); }
+
+function e(id) { return document.getElementById(id); }
+
+function render() {
+  const q = e('search').value.toLowerCase();
+  const rows = q
+    ? partners.filter(p => [p.name,p.ort,p.ap1,p.ap2,p.em1,p.em2].some(v => v && v.toLowerCase().includes(q)))
+    : partners;
+  e('count').textContent = partners.length + ' Partner';
+  const tbody = e('tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Keine Einträge gefunden</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(p => `
+    <tr>
+      <td><strong>${esc(p.name)}</strong>${p.land ? `<span class="tag">${esc(p.land)}</span>` : ''}</td>
+      <td class="addr">${p.strasse ? `<div>${esc(p.strasse)}</div>` : ''}${(p.plz||p.ort) ? `<div>${esc([p.plz,p.ort].filter(Boolean).join(' '))}</div>` : ''}</td>
+      <td>${contactCell(p.ap1,p.fn1,p.em1,p.tel1)}</td>
+      <td>${contactCell(p.ap2,p.fn2,p.em2,p.tel2)}</td>
+      <td class="actions">
+        <button class="btn-icon" onclick="openModal(${p.id})" title="Bearbeiten">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn-icon del" onclick="openDelete(${p.id})" title="Löschen">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </td>
+    </tr>`).join('');
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function contactCell(name,fn,em,tel) {
+  if (!name && !em) return '';
+  let h = '<div class="contact">';
+  if (name) h += `<div class="contact-name">${esc(name)}${fn ? `<span class="contact-fn"> · ${esc(fn)}</span>` : ''}</div>`;
+  if (em) h += `<a href="mailto:${esc(em)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>${esc(em)}</a>`;
+  if (tel) h += `<a href="tel:${esc(tel)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(tel)}</a>`;
+  return h + '</div>';
+}
+
+function openModal(id) {
+  editId = id;
+  const p = id ? partners.find(x => x.id === id) : {};
+  e('modalTitle').textContent = id ? 'Partner bearbeiten' : 'Neuer Partner';
+  ['name','strasse','plz','ort','land','ap1','fn1','em1','tel1','ap2','fn2','em2','tel2']
+    .forEach(k => { e('f-'+k).value = p[k] || (k==='land'?'CH':''); });
+  e('editOverlay').classList.remove('hidden');
+  e('f-name').focus();
+}
+
+function closeModal() { e('editOverlay').classList.add('hidden'); }
+
+function savePartner(ev) {
+  ev.preventDefault();
+  const d = {
+    name:e('f-name').value.trim(), strasse:e('f-strasse').value.trim(),
+    plz:e('f-plz').value.trim(), ort:e('f-ort').value.trim(), land:e('f-land').value.trim(),
+    ap1:e('f-ap1').value.trim(), fn1:e('f-fn1').value.trim(),
+    em1:e('f-em1').value.trim(), tel1:e('f-tel1').value.trim(),
+    ap2:e('f-ap2').value.trim(), fn2:e('f-fn2').value.trim(),
+    em2:e('f-em2').value.trim(), tel2:e('f-tel2').value.trim(),
+  };
+  if (editId) {
+    partners = partners.map(p => p.id === editId ? {...p,...d} : p);
+  } else {
+    d.id = Math.max(0, ...partners.map(p => p.id)) + 1;
+    partners.push(d);
+  }
+  save(); closeModal(); render();
+}
+
+function openDelete(id) {
+  deleteId = id;
+  const p = partners.find(x => x.id === id);
+  e('delText').innerHTML = `<strong>${esc(p.name)}</strong> wird unwiderruflich gelöscht.`;
+  e('delOverlay').classList.remove('hidden');
+}
+
+function closeDelete() { e('delOverlay').classList.add('hidden'); }
+
+function confirmDelete() {
+  partners = partners.filter(p => p.id !== deleteId);
+  save(); closeDelete(); render();
+}
+
+function exportCSV() {
+  const cols = ['name','strasse','plz','ort','land','ap1','fn1','em1','tel1','ap2','fn2','em2','tel2'];
+  const header = ['name','strasse','plz','ort','land','ansprechpartner 1','funktion 1','email 1','telefon 1','ansprechpartner 2','funktion 2','email 2','telefon 2'];
+  const rows = [header, ...partners.map(p => cols.map(k => `"${(p[k]||'').replace(/"/g,'""')}"`))];
+  const csv = '﻿' + rows.map(r => r.join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'cmpartner.csv';
+  a.click();
+}
+
+function importCSV(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const lines = e.target.result.replace(/^﻿/,'').split(/\r?\n/).filter(Boolean);
+    const header = parseCSVLine(lines[0]);
+    const idx = (name) => header.findIndex(h => h.toLowerCase().includes(name));
+    const iName=idx('name'), iStr=idx('strasse'), iPlz=idx('plz'), iOrt=idx('ort'), iLand=idx('land');
+    const iAp1=idx('ansprechpartner 1'), iFn1=idx('funktion 1'), iEm1=idx('email 1'), iTel1=idx('telefon 1');
+    const iAp2=idx('ansprechpartner 2'), iFn2=idx('funktion 2'), iEm2=idx('email 2'), iTel2=idx('telefon 2');
+    partners = lines.slice(1).map((line, i) => {
+      const c = parseCSVLine(line);
+      return {id:i+1, name:c[iName]||'', strasse:c[iStr]||'', plz:c[iPlz]||'', ort:c[iOrt]||'', land:c[iLand]||'CH',
+        ap1:c[iAp1]||'', fn1:c[iFn1]||'', em1:c[iEm1]||'', tel1:c[iTel1]||'',
+        ap2:c[iAp2]||'', fn2:c[iFn2]||'', em2:c[iEm2]||'', tel2:c[iTel2]||''};
+    }).filter(p => p.name);
+    save(); render();
+  };
+  reader.readAsText(file, 'UTF-8');
+  ev.target.value = '';
+}
+
+function parseCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { if (inQ && line[i+1]==='"') { cur+='"'; i++; } else inQ=!inQ; }
+    else if (ch === ',' && !inQ) { result.push(cur.trim()); cur=''; }
+    else cur += ch;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+render();
+</script>
+</body>
+</html>
