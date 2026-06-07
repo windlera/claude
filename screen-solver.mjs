@@ -208,11 +208,17 @@ if (!process.env.ANTHROPIC_API_KEY) {
   console.error("   Erstelle eine .env Datei mit: ANTHROPIC_API_KEY=sk-ant-...");
   setTimeout(() => process.exit(1), 200);
 } else {
-  await tick();
-
-  if (!runOnce) {
-    intervalHandle = setInterval(tick, intervalSec * 1000);
+  const key = process.env.ANTHROPIC_API_KEY;
+  console.log(`   API Key  : ${key.slice(0, 18)}...${key.slice(-4)} (${key.length} Zeichen)`);
+  if (!key.startsWith("sk-ant-")) {
+    console.error("❌ Key hat falsches Format! Muss mit 'sk-ant-' beginnen.");
+    setTimeout(() => process.exit(1), 200);
   } else {
-    shutdown(0);
+    await tick();
+    if (!runOnce) {
+      intervalHandle = setInterval(tick, intervalSec * 1000);
+    } else {
+      shutdown(0);
+    }
   }
 }
