@@ -160,10 +160,22 @@ async function tick() {
     console.error(`\n❌ Claude-Fehler: ${err.message}`);
     if (err.status === 401) {
       console.error("   → Ungültiger ANTHROPIC_API_KEY.");
-      process.exit(1);
+      shutdown(1);
     }
   }
 }
+
+// --- Sauberes Beenden (verhindert Windows async-Handle Assertion) ---
+function shutdown(code = 0) {
+  if (playwrightBrowser) {
+    playwrightBrowser.close().finally(() => process.exit(code));
+  } else {
+    setImmediate(() => process.exit(code));
+  }
+}
+
+process.on("SIGINT", () => { console.log("\n👋 Beende..."); shutdown(0); });
+process.on("SIGTERM", () => shutdown(0));
 
 // --- Start ---
 console.log("🖥️  Screen Solver gestartet");
@@ -175,7 +187,9 @@ console.log("   Zum Beenden: Ctrl+C\n");
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("❌ ANTHROPIC_API_KEY nicht gesetzt!");
-  process.exit(1);
+  setImmediate(() => process.exit(1));
+  process.exitCode = 1;
+  throw new Error("ANTHROPIC_API_KEY fehlt");
 }
 
 await tick();
@@ -183,6 +197,5 @@ await tick();
 if (!runOnce) {
   setInterval(tick, intervalSec * 1000);
 } else {
-  if (playwrightBrowser) await playwrightBrowser.close();
-  process.exit(0);
+  shutdown(0);
 }
