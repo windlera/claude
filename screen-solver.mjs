@@ -15,7 +15,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
+import os from "os";
 import path from "path";
+import { execFile } from "child_process";
 import { fileURLToPath } from "url";
 
 // .env Datei laden falls vorhanden (KEY=VALUE pro Zeile)
@@ -68,10 +70,32 @@ function hashBuffer(buf) {
   return h;
 }
 
-// --- Screenshot: Desktop (benötigt Display) ---
-async function captureDesktop() {
+// --- Screenshot: Desktop via PowerShell (Windows, kein nativer Addon) ---
+async function captureDesktopWindows() {
+  const tmpFile = path.join(os.tmpdir(), `screen-${Date.now()}.png`).replace(/\\/g, "\\\\");
+  const ps =
+    `Add-Type -AssemblyName System.Windows.Forms,System.Drawing;` +
+    `$b=New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width,[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height);` +
+    `$g=[System.Drawing.Graphics]::FromImage($b);` +
+    `$g.CopyFromScreen(0,0,0,0,$b.Size);` +
+    `$b.Save('${tmpFile}');$g.Dispose();$b.Dispose()`;
+  await new Promise((resolve, reject) =>
+    execFile("powershell", ["-NoProfile", "-Command", ps], (err) => (err ? reject(err) : resolve()))
+  );
+  const buf = fs.readFileSync(tmpFile.replace(/\\\\/g, "\\"));
+  fs.unlinkSync(tmpFile.replace(/\\\\/g, "\\"));
+  return buf;
+}
+
+// --- Screenshot: Desktop (Linux/macOS via screenshot-desktop) ---
+async function captureDesktopUnix() {
   const { default: screenshot } = await import("screenshot-desktop");
   return screenshot({ format: "png" });
+}
+
+async function captureDesktop() {
+  if (process.platform === "win32") return captureDesktopWindows();
+  return captureDesktopUnix();
 }
 
 // --- Screenshot: Browser via Playwright (kein Display nötig) ---
