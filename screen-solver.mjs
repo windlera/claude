@@ -177,12 +177,19 @@ async function tick() {
 }
 
 // --- Sauberes Beenden (verhindert Windows async-Handle Assertion) ---
+let intervalHandle = null;
+
 function shutdown(code = 0) {
-  if (playwrightBrowser) {
-    playwrightBrowser.close().finally(() => process.exit(code));
-  } else {
-    setImmediate(() => process.exit(code));
-  }
+  process.exitCode = code;
+  if (intervalHandle) clearInterval(intervalHandle);
+  // Kurze Verzögerung damit native Handles (screenshot-desktop) sauber schließen
+  setTimeout(() => {
+    if (playwrightBrowser) {
+      playwrightBrowser.close().catch(() => {}).finally(() => process.exit(code));
+    } else {
+      process.exit(code);
+    }
+  }, 200);
 }
 
 process.on("SIGINT", () => { console.log("\n👋 Beende..."); shutdown(0); });
@@ -198,15 +205,14 @@ console.log("   Zum Beenden: Ctrl+C\n");
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("❌ ANTHROPIC_API_KEY nicht gesetzt!");
-  setImmediate(() => process.exit(1));
-  process.exitCode = 1;
-  throw new Error("ANTHROPIC_API_KEY fehlt");
-}
-
-await tick();
-
-if (!runOnce) {
-  setInterval(tick, intervalSec * 1000);
+  console.error("   Erstelle eine .env Datei mit: ANTHROPIC_API_KEY=sk-ant-...");
+  setTimeout(() => process.exit(1), 200);
 } else {
-  shutdown(0);
+  await tick();
+
+  if (!runOnce) {
+    intervalHandle = setInterval(tick, intervalSec * 1000);
+  } else {
+    shutdown(0);
+  }
 }
