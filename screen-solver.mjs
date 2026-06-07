@@ -18,6 +18,17 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// .env Datei laden falls vorhanden (KEY=VALUE pro Zeile)
+const envPath = path.join(path.dirname(fileURLToPath(import.meta.url)), ".env");
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+    const match = line.match(/^([A-Z_]+)\s*=\s*(.+)$/);
+    if (match && !process.env[match[1]]) {
+      process.env[match[1]] = match[2].trim().replace(/^["']|["']$/g, "");
+    }
+  }
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // --- Argumente parsen ---
