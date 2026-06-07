@@ -4,15 +4,16 @@
  *
  * Verwendung:
  *   ANTHROPIC_API_KEY=sk-... node screen-solver.mjs [--interval 5] [--once]
+ *   ANTHROPIC_API_KEY=sk-... node screen-solver.mjs --url https://example.com
  *
  * Optionen:
- *   --interval N   Sekunden zwischen Screenshots (Standard: 5)
- *   --once         Nur einmal ausführen, dann beenden
- *   --debug        Screenshot als PNG speichern (screenshot.png) für Diagnose
+ *   --interval N       Sekunden zwischen Screenshots (Standard: 5)
+ *   --once             Nur einmal ausführen, dann beenden
+ *   --debug            Screenshot als PNG speichern (screenshot.png)
+ *   --url <URL>        Browser-Modus: Screenshot dieser URL (kein Display nötig)
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import screenshot from "screenshot-desktop";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -25,8 +26,10 @@ const intervalSec = (() => {
   const idx = args.indexOf("--interval");
   return idx !== -1 ? parseInt(args[idx + 1], 10) || 5 : 5;
 })();
-const runOnce = args.includes("--once");
+const runOnce  = args.includes("--once");
 const debugMode = args.includes("--debug");
+const urlIdx   = args.indexOf("--url");
+const targetUrl = urlIdx !== -1 ? args[urlIdx + 1] : null;
 
 // --- Anthropic Client ---
 const client = new Anthropic();
@@ -43,6 +46,7 @@ Antworte auf Deutsch. Halte die Antwort kurz und fokussiert auf das erkannte Pro
 
 let lastScreenHash = null;
 let solveCount = 0;
+let playwrightBrowser = null;
 
 function hashBuffer(buf) {
   let h = 0;
@@ -53,19 +57,39 @@ function hashBuffer(buf) {
   return h;
 }
 
+// --- Screenshot: Desktop (benötigt Display) ---
+async function captureDesktop() {
+  const { default: screenshot } = await import("screenshot-desktop");
+  return screenshot({ format: "png" });
+}
+
+// --- Screenshot: Browser via Playwright (kein Display nötig) ---
+async function captureBrowser(url) {
+  if (!playwrightBrowser) {
+    const { chromium } = await import("playwright");
+    playwrightBrowser = await chromium.launch({ headless: true });
+  }
+  const page = await playwrightBrowser.newPage();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+  const buf = await page.screenshot({ type: "png", fullPage: false });
+  await page.close();
+  return buf;
+}
+
 async function captureScreen() {
+  if (targetUrl) {
+    return captureBrowser(targetUrl);
+  }
   try {
-    const img = await screenshot({ format: "png" });
-    return img;
+    return await captureDesktop();
   } catch (err) {
-    // Fallback: versuche über playwright einen Screenshot zu machen
-    throw new Error(`Screenshot fehlgeschlagen: ${err.message}`);
+    throw new Error(`Screenshot fehlgeschlagen: ${err.message}\nTipp: --url <URL> für Browser-Modus verwenden`);
   }
 }
 
 async function solveFromScreen(imgBuffer) {
   const base64 = imgBuffer.toString("base64");
-
   process.stdout.write("\n🔍 Analysiere Bildschirm...\n");
 
   const response = await client.messages.create({
@@ -79,11 +103,7 @@ async function solveFromScreen(imgBuffer) {
         content: [
           {
             type: "image",
-            source: {
-              type: "base64",
-              media_type: "image/png",
-              data: base64,
-            },
+            source: { type: "base64", media_type: "image/png", data: base64 },
           },
           {
             type: "text",
@@ -94,13 +114,11 @@ async function solveFromScreen(imgBuffer) {
     ],
   });
 
-  let answer = "";
-  for (const block of response.content) {
-    if (block.type === "text") {
-      answer += block.text;
-    }
-  }
-  return answer.trim();
+  return response.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("")
+    .trim();
 }
 
 function printSeparator() {
@@ -122,7 +140,6 @@ async function tick() {
     console.log(`💾 Screenshot gespeichert: ${debugPath}`);
   }
 
-  // Bildschirm-Hash prüfen — nicht lösen wenn sich nichts geändert hat
   const hash = hashBuffer(imgBuffer);
   if (hash === lastScreenHash && solveCount > 0) {
     process.stdout.write(".");
@@ -135,28 +152,29 @@ async function tick() {
     solveCount++;
     printSeparator();
     console.log(`⏱  ${new Date().toLocaleTimeString("de-DE")}  |  Analyse #${solveCount}`);
+    if (targetUrl) console.log(`🌐 URL: ${targetUrl}`);
     console.log("═".repeat(60));
     console.log(solution);
     printSeparator();
   } catch (err) {
     console.error(`\n❌ Claude-Fehler: ${err.message}`);
     if (err.status === 401) {
-      console.error("   → Bitte ANTHROPIC_API_KEY setzen.");
+      console.error("   → Ungültiger ANTHROPIC_API_KEY.");
       process.exit(1);
     }
   }
 }
 
-// --- Hauptschleife ---
+// --- Start ---
 console.log("🖥️  Screen Solver gestartet");
 console.log(`   Modell   : claude-opus-4-8`);
 console.log(`   Modus    : ${runOnce ? "einmalig" : `alle ${intervalSec}s`}`);
+console.log(`   Quelle   : ${targetUrl ? `Browser → ${targetUrl}` : "Desktop-Screenshot"}`);
 console.log(`   Debug    : ${debugMode ? "ja (screenshot.png)" : "nein"}`);
 console.log("   Zum Beenden: Ctrl+C\n");
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("❌ ANTHROPIC_API_KEY nicht gesetzt!");
-  console.error("   Setze ihn z.B. mit: export ANTHROPIC_API_KEY=sk-ant-...");
   process.exit(1);
 }
 
@@ -165,5 +183,6 @@ await tick();
 if (!runOnce) {
   setInterval(tick, intervalSec * 1000);
 } else {
+  if (playwrightBrowser) await playwrightBrowser.close();
   process.exit(0);
 }
