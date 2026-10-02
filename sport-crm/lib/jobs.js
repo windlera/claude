@@ -61,9 +61,10 @@ export class JobRunner {
     try {
       if (typ === 'osm') await this.#runOsm(id, params, counts, log);
       else await this.#runEnrich(id, params, counts, log);
-      const status = this.cancelled.has(id) ? 'abgebrochen' : 'fertig';
+      const nothingWorked = counts.fehler > 0 && counts.neu + counts.aktualisiert === 0;
+      const status = this.cancelled.has(id) ? 'abgebrochen' : nothingWorked ? 'fehler' : 'fertig';
       this.store.updateJob(id, { status, ...counts, finished_at: new Date().toISOString() });
-      log(`${status === 'fertig' ? 'Fertig' : 'Abgebrochen'}: ${counts.neu} neu, ${counts.aktualisiert} aktualisiert, ${counts.fehler} Fehler`);
+      log(`${{ fertig: 'Fertig', fehler: 'Fehlgeschlagen', abgebrochen: 'Abgebrochen' }[status]}: ${counts.neu} neu, ${counts.aktualisiert} aktualisiert, ${counts.fehler} Fehler`);
     } catch (e) {
       log(`Abbruch: ${e.message}`);
       this.store.updateJob(id, { status: 'fehler', ...counts, finished_at: new Date().toISOString() });

@@ -10,10 +10,10 @@ let base;
 let store;
 let runner;
 
-const osmFetch = async (kanton) => (kanton === 'ZH' ? [
+const osmFetch = async (kanton) => { if (kanton === 'GE') throw new Error('HTTP 504'); return kanton === 'ZH' ? [
   { source_id: 'osm:node/1', data: { typ: 'verein', name: 'FC Zürich-Nord', sportarten: 'Fussball', plz: '8050', ort: 'Zürich', kanton: 'ZH', website: 'https://fczn.ch' } },
   { source_id: 'osm:node/2', data: { typ: 'verein', name: 'Unihockey Tigers', sportarten: 'Unihockey', plz: '8400', ort: 'Winterthur', kanton: 'ZH' } },
-] : []);
+] : []; };
 const scrape = async (url) => ({ data: { website: url, email: 'info@fczn.ch', telefon: '+41 44 000 00 00', ort: 'Überschrieben?' }, title: 'FC Zürich-Nord | Home', emails: ['info@fczn.ch'], phones: [], pages: 1 });
 
 async function call(method, path, json) {
@@ -107,6 +107,14 @@ test('manual organisations, duplicates, contacts, leads, activities, stats', asy
 
   assert.equal((await call('DELETE', `/api/orgs/${forced.body.id}`)).status, 200);
   assert.equal((await call('GET', `/api/orgs/${forced.body.id}`)).status, 404);
+});
+
+test('a job where every request fails ends with status fehler', async () => {
+  const job = await call('POST', '/api/jobs', { typ: 'osm', params: { kantone: ['GE'] } });
+  await runner.idle();
+  const j = (await call('GET', `/api/jobs/${job.body.id}`)).body;
+  assert.equal(j.status, 'fehler');
+  assert.match(j.log, /GE: Fehler – HTTP 504/);
 });
 
 test('CSV import and export', async () => {
