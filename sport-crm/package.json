@@ -1,0 +1,12 @@
+{
+  "name": "sport-crm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CRM für Schweizer Sportvereine, Agenturen und Leads",
+  "type": "module",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server.js",
+    "test": "node --no-warnings=ExperimentalWarning --test test/*.test.js"
+  }
+}

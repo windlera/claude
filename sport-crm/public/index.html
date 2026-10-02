@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sport-CRM Schweiz</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23d52b1e'/><path d='M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z' fill='white'/></svg>">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="logo">+</span> Sport-CRM</div>
+    <nav>
+      <a href="#/" data-nav="dashboard">Übersicht</a>
+      <a href="#/orgs?typ=verein" data-nav="verein">Sportvereine</a>
+      <a href="#/orgs?typ=agentur" data-nav="agentur">Agenturen</a>
+      <a href="#/orgs?typ=verband" data-nav="verband">Verbände</a>
+      <a href="#/orgs" data-nav="orgs">Alle Organisationen</a>
+      <a href="#/leads" data-nav="leads">Leads</a>
+      <a href="#/import" data-nav="import">Daten sammeln</a>
+    </nav>
+    <div class="sidebar-foot">Vereinsdaten: © OpenStreetMap-Mitwirkende (ODbL) und öffentliche Vereins-Websites</div>
+  </aside>
+  <main id="view" tabindex="-1"></main>
+  <div id="modal-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
