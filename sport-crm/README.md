@@ -3,7 +3,14 @@
 CRM zur Pflege von **Sportvereinen, Agenturen und Verbänden der Schweiz** inklusive **Leads**, Ansprechpersonen und Aktivitäten.
 Vereinsdaten werden automatisch aus dem Internet gesammelt und lassen sich jederzeit manuell ergänzen oder korrigieren.
 
-## Starten
+## Starten unter Windows (ohne Git)
+
+1. [Node.js](https://nodejs.org) installieren (Version «LTS», mindestens 22.5).
+2. Die ZIP-Datei `sport-crm.zip` entpacken, z.B. nach `C:\sport-crm`.
+3. Im entpackten Ordner doppelt auf **`Sport-CRM-starten.bat`** klicken. Der Browser öffnet sich mit http://localhost:3000.
+   Das schwarze Fenster offen lassen – wird es geschlossen, ist das CRM beendet.
+
+## Starten (Kommandozeile)
 
 Voraussetzung: [Node.js](https://nodejs.org) **22.5 oder neuer** (keine weiteren Pakete nötig, die Datenbank ist SQLite).
 

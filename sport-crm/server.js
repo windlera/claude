@@ -189,7 +189,8 @@ export function createApp(store, runner, { scrape = scrapeWebsite, scrapeList = 
   };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Case-insensitive compare: on Windows the drive letter casing of argv[1] can differ.
+if (path.resolve(process.argv[1] || '').toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) {
   const dbFile = process.env.DB_FILE || path.join(ROOT, 'data', 'crm.db');
   const store = new Store(dbFile);
   const runner = new JobRunner(store);
