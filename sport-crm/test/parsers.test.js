@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyse, normalizePhone, findContactPages, extractLinks, scrapeWebsite } from '../lib/enrich.js';
+import { analyse, normalizePhone, findContactPages, extractLinks, scrapeWebsite, extractOrgLinks } from '../lib/enrich.js';
 import { parseRobots, isAllowed } from '../lib/fetcher.js';
 import { parseCsv, toCsv, mapImportRow } from '../lib/csv.js';
 import { mapElement, buildQuery } from '../lib/osm.js';
@@ -105,4 +105,14 @@ test('OSM element mapping', () => {
 test('sportLabel translates and dedupes', () => {
   assert.equal(sportLabel('soccer;floorball;soccer'), 'Fussball, Unihockey');
   assert.equal(sportLabel('some_new_sport'), 'Some new sport');
+});
+
+test('extractOrgLinks turns a directory page into organisations', () => {
+  const html = `<a href="https://www.football.ch/">Schweizerischer Fussballverband</a><a href="https://football.ch/kontakt">football.ch</a>
+    <a href="/intern">Intern</a><a href="https://shop.swissolympic.ch">Shop</a><a href="https://www.facebook.com/so">FB</a>
+    <a href="https://swiss-ski.ch">www.swiss-ski.ch</a><a href="mailto:x@y.ch">Mail</a>`;
+  assert.deepEqual(extractOrgLinks(html, 'https://www.swissolympic.ch/verbaende'), [
+    { name: 'Schweizerischer Fussballverband', website: 'https://www.football.ch' },
+    { name: 'swiss-ski.ch', website: 'https://swiss-ski.ch' },
+  ]);
 });

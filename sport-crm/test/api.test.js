@@ -29,7 +29,8 @@ async function call(method, path, json) {
 before(async () => {
   store = new Store(':memory:');
   runner = new JobRunner(store, { osmFetch, scrape });
-  server = http.createServer(createApp(store, runner, { scrape }));
+  const scrapeList = async () => [{ name: 'Swiss Tennis', website: 'https://www.swisstennis.ch' }, { name: 'Neuer Verband', website: 'https://neuer-verband.ch' }];
+  server = http.createServer(createApp(store, runner, { scrape, scrapeList }));
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -130,4 +131,27 @@ test('scrape-url proposes data and static files are served', async () => {
   assert.match(await html.text(), /Sport-CRM/);
   const traversal = await fetch(`${base}/..%2f..%2fpackage.json`);
   assert.doesNotMatch(await traversal.text(), /"sport-crm"/);
+});
+
+test('federation list is seeded once, list import from a directory page', async () => {
+  const { seedVerbaende, VERBAENDE } = await import('../lib/verbaende.js');
+  const neu = seedVerbaende(store);
+  assert.equal(neu, VERBAENDE.length);
+  assert.equal(seedVerbaende(store), 0, 'second start does not re-import');
+  const list = await call('GET', '/api/orgs?typ=verband&limit=500');
+  assert.equal(list.body.total, VERBAENDE.length);
+  const sfv = list.body.rows.find((r) => r.name.includes('(SFV)'));
+  assert.equal(sfv.website, 'https://www.football.ch');
+  assert.equal(new Set(VERBAENDE.map((v) => v.source_id)).size, VERBAENDE.length, 'source ids are unique');
+
+  await call('DELETE', `/api/orgs/${sfv.id}`);
+  assert.equal((await call('POST', '/api/verbaende/seed')).body.neu, 1, 'deleted federation is restored');
+
+  const r = await call('POST', '/api/scrape-list', { url: 'https://dir.example' });
+  assert.deepEqual(r.body.map((x) => x.name), ['Swiss Tennis', 'Neuer Verband']);
+  assert.ok(r.body[0].vorhanden, 'existing federation is recognised by website');
+  const bulk = await call('POST', '/api/orgs/bulk', { typ: 'verband', tags: 'Swiss Olympic', items: r.body.filter((x) => !x.vorhanden) });
+  assert.deepEqual(bulk.body, { neu: 1, aktualisiert: 0, unveraendert: 0 });
+  const created = await call('GET', '/api/orgs?q=Neuer%20Verband');
+  assert.equal(created.body.rows[0].typ, 'verband');
 });

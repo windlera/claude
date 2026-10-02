@@ -40,7 +40,12 @@ Danach im Browser **http://localhost:3000** öffnen. Die Daten liegen in `sport-
 1. **OpenStreetMap-Import**: holt pro Kanton alle als Sportverein erfassten Objekte (`club=sport`, `leisure=sports_club`, …) bzw. Werbe-, Marketing- und Eventagenturen, inkl. Adresse, Sportart, Website, Telefon, E-Mail und Koordinaten. Erneutes Ausführen aktualisiert die Einträge, statt Duplikate anzulegen.
 2. **Website-Auswertung**: besucht die Websites (Startseite + Kontakt-/Impressum-Seiten) und ergänzt **nur leere Felder**: E-Mail, Telefon, Adresse und Social-Media-Links. Auch einzeln pro Organisation über «Web-Daten ergänzen».
 3. **Aus Website erfassen**: neue Organisation über die Website-Adresse anlegen; das Formular wird mit den gefundenen Daten vorausgefüllt.
-4. **CSV-Import/-Export**: z.B. Vereinslisten von Verbänden oder Excel-Listen (Spaltennamen werden automatisch erkannt: Name/Verein, PLZ, Ort, Kanton, E-Mail, Website, Sportart …). Der Export ist mit Excel kompatibel (Semikolon, UTF-8).
+4. **Sportverbände**: Beim ersten Start werden die nationalen Sportverbände der Schweiz automatisch angelegt (Menü «Verbände», Liste in `lib/verbaende.js`).
+   Über «Liste von einer Website übernehmen» lässt sich zusätzlich die aktuelle Mitgliederliste von Swiss Olympic (oder jede andere Verzeichnisseite, z.B. die Vereinsliste eines Verbands) einlesen:
+   alle externen Links werden als Vorschläge angezeigt, bereits erfasste markiert, und die ausgewählten übernommen.
+   Danach ergänzt «Websites auswerten» mit Typ «Verband» Adressen, E-Mails und Telefonnummern.
+   In der Detailansicht eines Verbands führen die Sportarten direkt zu den passenden Vereinen.
+5. **CSV-Import/-Export**: z.B. Vereinslisten von Verbänden oder Excel-Listen (Spaltennamen werden automatisch erkannt: Name/Verein, PLZ, Ort, Kanton, E-Mail, Website, Sportart …). Der Export ist mit Excel kompatibel (Semikolon, UTF-8).
 
 ### Manuelle Daten haben Vorrang
 

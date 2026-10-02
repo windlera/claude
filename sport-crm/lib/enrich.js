@@ -181,3 +181,30 @@ export async function scrapeWebsite(website, { maxPages = 3, fetcher = fetchPage
   };
   return { data, title: results[0].meta.title, emails, phones, pages: results.length };
 }
+
+const NOT_AN_ORG = /(^|\.)(facebook|instagram|linkedin|twitter|x|youtube|youtu|tiktok|google|apple|microsoft|wikipedia|wikimedia|flickr|vimeo|whatsapp|pinterest|xing|admin|cookiebot|onetrust|mailchimp|issuu)\.[a-z]+$/i;
+
+/**
+ * Extract a list of organisations from a directory page (e.g. a federation's member list):
+ * every external link becomes a candidate { name, website }.
+ */
+export function extractOrgLinks(html, pageUrl) {
+  const own = hostOf(pageUrl);
+  const byHost = new Map();
+  for (const l of extractLinks(html, pageUrl)) {
+    if (!/^https?:/i.test(l.href)) continue;
+    const host = hostOf(l.href);
+    if (!host || host === own || host.endsWith(`.${own}`) || NOT_AN_ORG.test(host)) continue;
+    const text = l.text.replace(/\s+/g, ' ').trim();
+    const looksLikeUrl = /^(https?:\/\/|www\.)|^[\w-]+\.[a-z]{2,}(\/|$)/i.test(text);
+    const name = text && !looksLikeUrl && text.length <= 120 ? text : '';
+    const prev = byHost.get(host);
+    if (!prev || (!prev.name && name)) byHost.set(host, { name, website: new URL(l.href).origin });
+  }
+  return [...byHost.values()].map((o) => ({ ...o, name: o.name || hostOf(o.website) }));
+}
+
+export async function scrapeLinkList(url, { fetcher = fetchPage } = {}) {
+  const page = await fetcher(/^https?:\/\//i.test(url) ? url : `https://${url}`);
+  return extractOrgLinks(page.html, page.url);
+}

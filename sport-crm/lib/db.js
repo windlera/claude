@@ -79,6 +79,11 @@ CREATE TABLE IF NOT EXISTS activities (
 );
 CREATE INDEX IF NOT EXISTS idx_act_org ON activities(org_id);
 
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
   id INTEGER PRIMARY KEY,
   typ TEXT NOT NULL,
@@ -436,6 +441,16 @@ export class Store {
         SELECT a.*, o.name AS org_name FROM activities a JOIN organisations o ON o.id = a.org_id
         ORDER BY a.datum DESC, a.id DESC LIMIT 10`),
     };
+  }
+
+  // ---------- Einstellungen ----------
+
+  getSetting(key) {
+    return this.db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value ?? null;
+  }
+
+  setSetting(key, value) {
+    this.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
   }
 
   // ---------- Jobs ----------

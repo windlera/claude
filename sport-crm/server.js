@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { Store } from './lib/db.js';
 import { JobRunner } from './lib/jobs.js';
-import { scrapeWebsite } from './lib/enrich.js';
+import { scrapeWebsite, scrapeLinkList } from './lib/enrich.js';
+import { seedVerbaende } from './lib/verbaende.js';
 import { parseCsv, toCsv, mapImportRow } from './lib/csv.js';
 import { CANTONS, ORG_TYPES, ORG_STATUS, LEAD_PHASES, ACTIVITY_TYPES } from './lib/constants.js';
 
@@ -45,7 +46,7 @@ function orgFilter(sp) {
   };
 }
 
-export function createApp(store, runner, { scrape = scrapeWebsite } = {}) {
+export function createApp(store, runner, { scrape = scrapeWebsite, scrapeList = scrapeLinkList } = {}) {
   const routes = [];
   const route = (method, pattern, handler) => {
     const keys = [];
@@ -86,6 +87,31 @@ export function createApp(store, runner, { scrape = scrapeWebsite } = {}) {
     try { found = await scrape(url); } catch (e) { throw new HttpError(502, `Website nicht lesbar: ${e.message}`); }
     const name = (found.title || '').split(/\s[|–—-]\s/)[0].trim();
     return { ...found, data: { name, ...found.data }, duplikat: store.findDuplicate({ website: found.data.website }) };
+  });
+
+  route('POST', '/api/scrape-list', async ({ req }) => {
+    const { url } = await readJson(req);
+    if (!url) throw new HttpError(400, 'URL fehlt');
+    let items;
+    try { items = await scrapeList(url); } catch (e) { throw new HttpError(502, `Seite nicht lesbar: ${e.message}`); }
+    return items.map((it) => ({ ...it, vorhanden: store.findDuplicate(it) }));
+  });
+  route('POST', '/api/orgs/bulk', async ({ req }) => {
+    const { typ, tags = '', items = [] } = await readJson(req);
+    if (!ORG_TYPES[typ]) throw new HttpError(400, 'Ungültiger Typ');
+    const counts = { neu: 0, aktualisiert: 0, unveraendert: 0 };
+    store.transaction(() => {
+      for (const it of items) {
+        if (!it?.name) continue;
+        const { result } = store.upsertImported({ typ, tags, name: it.name, website: it.website || '' }, { quelle: 'liste' });
+        counts[result]++;
+      }
+    });
+    return counts;
+  });
+  route('POST', '/api/verbaende/seed', () => {
+    store.setSetting('verbaende_version', '0');
+    return { neu: seedVerbaende(store) };
   });
 
   route('GET', '/api/export.csv', ({ sp, res }) => {
@@ -167,6 +193,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const dbFile = process.env.DB_FILE || path.join(ROOT, 'data', 'crm.db');
   const store = new Store(dbFile);
   const runner = new JobRunner(store);
+  const neu = seedVerbaende(store);
+  if (neu) console.log(`${neu} nationale Sportverbände in die Datenbank übernommen`);
   const port = Number(process.env.PORT) || 3000;
   const host = process.env.HOST || '127.0.0.1';
   http.createServer(createApp(store, runner)).listen(port, host, () => {

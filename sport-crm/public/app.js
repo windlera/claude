@@ -175,7 +175,7 @@ async function renderOrgs(params) {
       <input type="search" name="q" placeholder="Suche: Name, Ort, PLZ, E-Mail, Sport …" value="${esc(f.q)}">
       <select name="typ">${options(META.typen, f.typ, 'Alle Typen')}</select>
       <select name="kanton">${options(Object.fromEntries(Object.entries(META.kantone).map(([k, v]) => [k, `${k} – ${v}`])), f.kanton, 'Alle Kantone')}</select>
-      <select name="sport"><option value="">Alle Sportarten</option>${META.sportarten.slice(0, 150).map((s) => `<option${s.name === f.sport ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+      <select name="sport"><option value="">Alle Sportarten</option>${[...(f.sport && !META.sportarten.slice(0, 150).some((x) => x.name === f.sport) ? [{ name: f.sport }] : []), ...META.sportarten.slice(0, 150)].map((s) => `<option${s.name === f.sport ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
       <select name="status">${options(META.status, f.status, 'Alle Status')}</select>
       <select name="sort">${options({ name: 'Sortierung: Name', ort: 'Ort', kanton: 'Kanton', neueste: 'Neueste', geaendert: 'Zuletzt geändert' }, f.sort)}</select>
       <label class="check"><input type="checkbox" name="ohneKontakt" value="1"${f.ohneKontakt ? ' checked' : ''}> ohne E-Mail/Tel.</label>
@@ -341,7 +341,8 @@ async function renderOrg(_params, id) {
     <div class="detail">
       <div class="grid">
         <div class="card"><h2>Stammdaten</h2><dl class="facts">
-          ${fact('Sportart(en)', 'sportarten')}${fact('Verband', 'verband')}
+          ${fact('Sportart(en)', 'sportarten', o.typ === 'verband' && o.sportarten ? o.sportarten.split(',').map((x) => x.trim()).filter(Boolean)
+            .map((x) => `<a href="#/orgs?typ=verein&sport=${encodeURIComponent(x)}" title="Vereine dieser Sportart anzeigen">${esc(x)}</a>`).join(', ') : undefined)}${fact('Verband', 'verband')}
           ${fact('Adresse', 'strasse', addr)}${fact('Kanton', 'kanton', o.kanton ? esc(`${o.kanton} – ${META.kantone[o.kanton] || ''}`) : '')}
           ${fact('Telefon', 'telefon', o.telefon ? `<a href="tel:${esc(o.telefon.replace(/\s/g, ''))}">${esc(o.telefon)}</a>` : '')}
           ${fact('E-Mail', 'email', o.email ? `<a href="mailto:${esc(o.email)}">${esc(o.email)}</a>` : '')}
@@ -642,6 +643,22 @@ async function renderImport() {
         </form>
         <div id="csv-result"></div>
       </div>
+      <div class="card">
+        <h2>5. Sportverbände</h2>
+        <p class="muted">Die nationalen Sportverbände werden beim ersten Start automatisch angelegt (Menü «Verbände»).
+          Gelöschte Verbände lassen sich mit der Standardliste wiederherstellen; bestehende Einträge und manuelle Änderungen bleiben erhalten.</p>
+        <button id="seed">Standardliste der Verbände laden</button>
+        <h3 style="margin-top:18px">Liste von einer Website übernehmen</h3>
+        <p class="muted">Liest alle externen Links einer Verzeichnisseite (z.B. die Mitgliederliste von Swiss Olympic oder die Vereinsliste eines Verbands)
+          und schlägt sie als Organisationen vor. Danach mit «Websites auswerten» Adressen und Kontakte ergänzen.</p>
+        <form id="list" class="form-grid">
+          <label class="wide">Adresse der Verzeichnisseite<input name="url" required value="https://www.swissolympic.ch/ueber-swiss-olympic/mitglieder_swiss_olympic"></label>
+          <label>Anlegen als<select name="typ">${options(META.typen, 'verband')}</select></label>
+          <label>Tag (optional)<input name="tags" placeholder="z.B. Swiss Olympic"></label>
+          <div class="wide"><button class="primary" id="list-go">Links lesen</button></div>
+        </form>
+        <div id="list-result"></div>
+      </div>
       <div class="card"><div class="section-head"><h2>Import-Verlauf</h2><button class="small" id="refresh">Aktualisieren</button></div><div id="jobs"></div></div>
     </div>`;
 
@@ -681,6 +698,49 @@ async function renderImport() {
         ${r.meldungen.length ? `<pre class="log">${esc(r.meldungen.slice(0, 50).join('\n'))}</pre>` : ''}`;
       META = await api('/api/meta');
     } catch (err) { toast(err.message, true); }
+  });
+
+  view.querySelector('#seed').addEventListener('click', async () => {
+    try {
+      const r = await api('/api/verbaende/seed', { method: 'POST' });
+      toast(r.neu ? `${r.neu} Verbände hinzugefügt` : 'Alle Verbände der Standardliste sind bereits erfasst');
+    } catch (err) { toast(err.message, true); }
+  });
+  const listForm = view.querySelector('#list');
+  const listBox = view.querySelector('#list-result');
+  listForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = view.querySelector('#list-go');
+    btn.disabled = true;
+    btn.textContent = 'Lese Seite …';
+    try {
+      const items = await api('/api/scrape-list', { method: 'POST', json: { url: listForm.url.value.trim() } });
+      listBox.innerHTML = items.length ? `
+        <div class="section-head" style="margin-top:14px"><span>${items.length} Links gefunden, ${items.filter((i) => i.vorhanden).length} bereits erfasst</span>
+          <span><button class="small" id="sel-all">Alle</button> <button class="small" id="sel-none">Keine</button></span></div>
+        <div class="table-wrap" style="max-height:360px;overflow:auto"><table><thead><tr><th></th><th>Name</th><th>Website</th></tr></thead><tbody>
+        ${items.map((it, i) => `<tr><td><input type="checkbox" data-i="${i}"${it.vorhanden ? '' : ' checked'}></td>
+          <td><input data-name="${i}" value="${esc(it.name)}">${it.vorhanden ? `<div class="small"><a href="#/orgs/${it.vorhanden}">bereits erfasst</a></div>` : ''}</td>
+          <td class="small">${link(it.website)}</td></tr>`).join('')}</tbody></table></div>
+        <button class="primary" id="list-save" style="margin-top:10px">Ausgewählte übernehmen</button>`
+        : '<p class="muted">Keine externen Links gefunden.</p>';
+      listBox.querySelector('#sel-all')?.addEventListener('click', () => listBox.querySelectorAll('[data-i]').forEach((c) => { c.checked = true; }));
+      listBox.querySelector('#sel-none')?.addEventListener('click', () => listBox.querySelectorAll('[data-i]').forEach((c) => { c.checked = false; }));
+      listBox.querySelector('#list-save')?.addEventListener('click', async () => {
+        const chosen = [...listBox.querySelectorAll('[data-i]:checked')].map((c) => {
+          const i = Number(c.dataset.i);
+          return { name: listBox.querySelector(`[data-name="${i}"]`).value.trim(), website: items[i].website };
+        });
+        if (!chosen.length) { toast('Nichts ausgewählt', true); return; }
+        try {
+          const r = await api('/api/orgs/bulk', { method: 'POST', json: { typ: listForm.typ.value, tags: listForm.tags.value.trim(), items: chosen } });
+          listBox.innerHTML = `<p><strong>${r.neu}</strong> neu, <strong>${r.aktualisiert}</strong> aktualisiert, ${r.unveraendert} unverändert.
+            Tipp: jetzt unter «2. Websites auswerten» mit Typ «${esc(META.typen[listForm.typ.value])}» Adressen und Kontakte ergänzen.</p>`;
+        } catch (err) { toast(err.message, true); }
+      });
+    } catch (err) { toast(err.message, true); }
+    btn.disabled = false;
+    btn.textContent = 'Links lesen';
   });
 
   const jobsBox = view.querySelector('#jobs');
